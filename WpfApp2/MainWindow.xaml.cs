@@ -24,18 +24,31 @@ namespace WpfApp2
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private WriteableBitmap colorBitmap = null;
         public event PropertyChangedEventHandler PropertyChanged;
+        ImageSource image;
         public ImageSource ImageSource
         {
             get
             {
-                return colorBitmap;
+                return this.image;
+            }
+            set
+            {
+                if (this.image != value)
+                {
+                    this.image = value;
+
+                    // notify any bound elements that the text has changed
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("ImageSource"));
+                    }
+                }
             }
         }
-       
 
         public MainWindow()
         {
@@ -61,6 +74,7 @@ namespace WpfApp2
                     colorBitmap.Lock();
                     colorBitmap.AddDirtyRect(new Int32Rect(0, 0, this.colorBitmap.PixelWidth, this.colorBitmap.PixelHeight));
                     colorBitmap.Unlock();
+                    ImageSource = colorBitmap;
                 };
 
                 // If the consumer shutdowns reconnect to rabbit and begin reading from the queue again.
