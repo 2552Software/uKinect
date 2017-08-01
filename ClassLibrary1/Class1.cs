@@ -63,7 +63,7 @@ namespace ClassLibrary1
                     {
                         using (MemoryStream memory = new MemoryStream())
                         {
-                            WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, 96.0, 96.0, PixelFormats.Bgr32, null);
+                            WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, colorFrameDescription.Width, colorFrameDescription.Height, PixelFormats.Bgr32, null);
                             JpegBitmapEncoder encoder = new JpegBitmapEncoder();
                             encoder.Frames.Add(BitmapFrame.Create(colorBitmap));
                             encoder.QualityLevel = 30;

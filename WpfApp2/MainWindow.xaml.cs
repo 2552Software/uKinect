@@ -16,6 +16,8 @@ using ClassLibrary1;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Threading;
+using System.IO;
+using System.ComponentModel;
 
 namespace WpfApp2
 {
@@ -24,6 +26,17 @@ namespace WpfApp2
     /// </summary>
     public partial class MainWindow : Window
     {
+        private WriteableBitmap colorBitmap = null;
+        public event PropertyChangedEventHandler PropertyChanged;
+        public ImageSource ImageSource
+        {
+            get
+            {
+                return colorBitmap;
+            }
+        }
+       
+
         public MainWindow()
         {
             InitializeComponent();
@@ -41,7 +54,13 @@ namespace WpfApp2
                 consumer.Received += (model, ea) =>
                 {
                     var body = ea.Body;
-                    var message = Encoding.UTF8.GetString(body);
+                    Stream imageStreamSource = new MemoryStream(ea.Body);
+                    JpegBitmapDecoder decoder = new JpegBitmapDecoder(imageStreamSource, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.Default);
+                    BitmapSource bitmapSource = decoder.Frames[0];
+                    colorBitmap = new WriteableBitmap(bitmapSource);
+                    colorBitmap.Lock();
+                    colorBitmap.AddDirtyRect(new Int32Rect(0, 0, this.colorBitmap.PixelWidth, this.colorBitmap.PixelHeight));
+                    colorBitmap.Unlock();
                 };
 
                 // If the consumer shutdowns reconnect to rabbit and begin reading from the queue again.

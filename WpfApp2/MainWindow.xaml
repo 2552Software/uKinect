@@ -6,7 +6,9 @@
         xmlns:local="clr-namespace:WpfApp2"
         mc:Ignorable="d"
         Title="MainWindow" Height="350" Width="525">
-    <Grid>
-        
-    </Grid>
+    <Button Focusable="False" Command="{Binding CmdClick}" Margin="0">
+        <Image Source="{Binding ImageSource}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0">
+        </Image>
+    </Button>
+
 </Window>
