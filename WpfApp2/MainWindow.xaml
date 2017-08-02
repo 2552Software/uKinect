@@ -8,10 +8,6 @@
         Title="MainWindow" Height="350" Width="525">
     <Grid>
         
-    <StackPanel Height="Auto">
-        <Label Name="theLabel" Content="{Binding Name}" />
-        <Button Content="Click me" Click="Button_Click" />
-    </StackPanel>
         <Viewbox Grid.Row="1" HorizontalAlignment="Center">
             <Image Name="theImage" Source="{Binding ImageSource}" Stretch="UniformToFill" />
     </Viewbox>

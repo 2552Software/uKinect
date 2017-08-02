@@ -9,12 +9,59 @@ using RabbitMQ.Client;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.IO;
+using System.ComponentModel;
 
 
 namespace ClassLibrary1
 {
+    public class KinectDataObject : INotifyPropertyChanged
+    {
+        ImageSource ColorImage = null;
+        public void Refresh(string name)
+        {
+            OnPropertyChanged(name);
+        }
+        // todo do for all images, get something going for the shapes, use the new graphics toy to tweak on stuff
+        public ImageSource ImageSource
+        {
+            get
+            {
+                return ColorImage;
+            }
+        }
+        public void setImage(byte[] buffer)
+        {
+            ColorImage = ConvertBytesToImage(buffer);
+            Refresh("ImageSource");
+        }
+        private ImageSource ConvertBytesToImage(byte[] buffer)
+        {
+            using (MemoryStream stream = new MemoryStream(buffer))
+            {
+                BitmapDecoder decoder = BitmapDecoder.Create(stream,
+                    BitmapCreateOptions.PreservePixelFormat,
+                    BitmapCacheOption.OnLoad); // enables closing the stream immediately
+                return decoder.Frames[0];
+            }
+        }
+        #region INotifyPropertyChanged Members
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged(string propertyName)
+        {
+            if (PropertyChanged != null)
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+
+        #endregion
+    }
+
     public class myKinect
     {
+
         private KinectSensor kinectSensor = null;
         private ColorFrameReader colorFrameReader = null;
         ConnectionFactory factory = new ConnectionFactory() { HostName = "localhost" };
