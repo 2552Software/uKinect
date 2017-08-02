@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.IO;
 
+
 namespace ClassLibrary1
 {
     public class myKinect
@@ -47,8 +48,13 @@ namespace ClassLibrary1
                 kinectSensor = null;
             }
         }
-
-
+        private void SaveImage(WriteableBitmap img, ref MemoryStream memory)
+        {
+            JpegBitmapEncoder encoder = new JpegBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(img));
+            encoder.Save(memory);
+            memory.Close();
+        }
         private void updateEvent(object sender, ColorFrameArrivedEventArgs e)
         {
             // ColorFrame is IDisposable
@@ -57,29 +63,33 @@ namespace ClassLibrary1
                 if (colorFrame != null)
                 {
                     FrameDescription colorFrameDescription = colorFrame.FrameDescription;
-
+                    
                     // bugbug include body id for other items
                     using (KinectBuffer colorBuffer = colorFrame.LockRawImageBuffer())
                     {
-                        using (MemoryStream memory = new MemoryStream())
-                        {
-                            WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, colorFrameDescription.Width, colorFrameDescription.Height, PixelFormats.Bgr32, null);
-                            JpegBitmapEncoder encoder = new JpegBitmapEncoder();
-                            encoder.Frames.Add(BitmapFrame.Create(colorBitmap));
-                            encoder.QualityLevel = 30;
-                            encoder.Save(memory);
-                            using (var connection = factory.CreateConnection())
-                            using (var channel = connection.CreateModel())
-                            {
-                                channel.ExchangeDeclare(exchange: "kinectcolor", type: "fanout");
+                        WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, 96.0, 96.0, PixelFormats.Bgr32, null);
 
-                                channel.BasicPublish(exchange: "kinectcolor",
-                                                     routingKey: "",
-                                                     basicProperties: null,
-                                                     body: memory.GetBuffer());
-                            }
+                        colorFrame.CopyConvertedFrameDataToIntPtr(
+                                    colorBitmap.BackBuffer,
+                                    (uint)(colorFrameDescription.Width * colorFrameDescription.Height * 4),
+                                    ColorImageFormat.Bgra);
+                        MemoryStream memory = new MemoryStream();
+                        JpegBitmapEncoder encoder = new JpegBitmapEncoder();
+                        encoder.QualityLevel = 30;
+                        SaveImage(colorBitmap, ref memory);
+                        using (var connection = factory.CreateConnection())
+                        using (var channel = connection.CreateModel())
+                        {
+                            channel.ExchangeDeclare(exchange: "kinectcolor", type: "fanout");
+                           
+                            //bugbug once all working add in the jpeg stuff (?) or just compress
+                            channel.BasicPublish(exchange: "kinectcolor",
+                                                 routingKey: "",
+                                                 basicProperties: null,
+                                                 body: memory.ToArray());
                         }
                     }
+
                 }
             }
         }

@@ -24,6 +24,7 @@ namespace WpfApp1
     /// </summary>
     public partial class MainWindow : Window
     {
+        
         myKinect k = new myKinect();
 
         public MainWindow()
