@@ -14,7 +14,7 @@ using System.Windows.Navigation;
 using System.Globalization;
 using System.IO;
 using System.ComponentModel;
-using ClassLibrary1;
+using s552ClassLibrary1;
 
 namespace WpfApp1
 {

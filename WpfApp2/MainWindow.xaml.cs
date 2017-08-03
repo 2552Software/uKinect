@@ -1,5 +1,5 @@
 ﻿using System.Windows;
-using ClassLibrary1;
+using s552ClassLibrary1;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
