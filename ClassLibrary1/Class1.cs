@@ -19,7 +19,16 @@ namespace ClassLibrary1
         ImageSource ColorImage = null;
         ImageSource DepthImage = null;
         ImageSource IRImage = null;
-
+        ImageSource BodyIndexImage = null;
+        private static readonly uint[] BodyIndexColor =
+        {
+            0x0000FF00,
+            0x00FF0000,
+            0xFFFF4000,
+            0x40FFFF00,
+            0xFF40FF00,
+            0xFF808000,
+        };
         public void Refresh(string name)
         {
             OnPropertyChanged(name);
@@ -37,6 +46,10 @@ namespace ClassLibrary1
         {
             get { return IRImage; }
         }
+        public ImageSource BodyIndexSource
+        {
+            get { return BodyIndexImage; }
+        }
         public void setColorImage(byte[] buffer)
         {
             ColorImage = ConvertBytesToImage(buffer);
@@ -51,6 +64,11 @@ namespace ClassLibrary1
         {
             IRImage = ConvertBytesToImage(buffer);
             Refresh("IRSource");
+        }
+        public void setBodyIndexImage(byte[] buffer)
+        {
+            BodyIndexImage = ConvertBytesToImage(buffer);
+            Refresh("BodyIndexSource");
         }
         private ImageSource ConvertBytesToImage(byte[] buffer)
         {
@@ -105,6 +123,7 @@ namespace ClassLibrary1
             kinectSensor.ColorFrameSource.OpenReader().FrameArrived += updateColorEvent;
             kinectSensor.DepthFrameSource.OpenReader().FrameArrived += updateDepthEvent;
             kinectSensor.InfraredFrameSource.OpenReader().FrameArrived += updateIREvent;
+            kinectSensor.BodyIndexFrameSource.OpenReader().FrameArrived += updateBodyIndexEvent;
         }
         public void close()
         {
@@ -223,17 +242,33 @@ namespace ClassLibrary1
                 if (colorFrame != null)
                 {
                     FrameDescription colorFrameDescription = colorFrame.FrameDescription;
-                    using (KinectBuffer colorBuffer = colorFrame.LockRawImageBuffer())
+                    WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, 196.0, 196.0, PixelFormats.Bgr32, null);
+
+                    colorFrame.CopyConvertedFrameDataToIntPtr(
+                                colorBitmap.BackBuffer,
+                                (uint)(colorFrameDescription.Width * colorFrameDescription.Height * 4),
+                                ColorImageFormat.Bgra);
+                    SendImage(colorBitmap, "kinectcolor");
+                }
+            }
+        }
+        private void updateBodyIndexEvent(object sender, BodyIndexFrameArrivedEventArgs e)
+        {
+            using (BodyIndexFrame frame = e.FrameReference.AcquireFrame())
+            {
+                if (frame != null)
+                {
+                    using (Microsoft.Kinect.KinectBuffer bodyIndexBuffer = frame.LockImageBuffer())
                     {
-                        WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, 196.0, 196.0, PixelFormats.Bgr32, null);
-
-                        colorFrame.CopyConvertedFrameDataToIntPtr(
-                                    colorBitmap.BackBuffer,
-                                    (uint)(colorFrameDescription.Width * colorFrameDescription.Height * 4),
-                                    ColorImageFormat.Bgra);
-                        SendImage(colorBitmap, "kinectcolor");
+                        FrameDescription frameDescription = frame.FrameDescription;
+                        // verify data and write the color data to the display bitmap
+                        if (((frameDescription.Width * frameDescription.Height) == bodyIndexBuffer.Size) &&
+                            (frameDescription.Width == this.bodyIndexBitmap.PixelWidth) && (frameDescription.Height == this.bodyIndexBitmap.PixelHeight))
+                        {
+                            this.ProcessBodyIndexFrameData(bodyIndexBuffer.UnderlyingBuffer, bodyIndexBuffer.Size);
+                            bodyIndexFrameProcessed = true;
+                        }
                     }
-
                 }
             }
         }
