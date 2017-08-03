@@ -11,9 +11,262 @@ using System.Windows.Media.Imaging;
 using System.IO;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+// next lab6, 10
 
 namespace s552ClassLibrary1
 {
+    // converted to bytes that can be used by any client
+    public class GenericJointOrientation
+    {
+        public void from(JointOrientation ori)
+        {
+            JointType = (UInt32)ori.JointType;
+            X = ori.Orientation.X;
+            Y = ori.Orientation.Y;
+            Z = ori.Orientation.Z;
+            W = ori.Orientation.W;
+        }
+        public UInt32 JointType; // public enum JointType
+        public float X;
+        public float Y;
+        public float Z;
+        public float W;
+    }
+    public class GenericJoint
+    {
+        public void from(Joint joint)
+        {
+            JointType = (UInt32)joint.JointType;
+            X = joint.Position.X;
+            Y = joint.Position.Y;
+            Z = joint.Position.Z;
+            TrackingState = (UInt16)joint.TrackingState;
+        }
+        public UInt32 JointType; // see public enum JointType
+        public float X;
+        public float Y;
+        public float Z;
+        public UInt16 TrackingState;
+    }
+    public class GenericKinectBody
+    {
+        public byte[] getBytes()
+        {
+            int size = Marshal.SizeOf(this);
+            byte[] arr = new byte[size];
+
+            IntPtr ptr = Marshal.AllocHGlobal(size);
+            Marshal.StructureToPtr(this, ptr, true);
+            Marshal.Copy(ptr, arr, 0, size);
+            Marshal.FreeHGlobal(ptr);
+            return arr;
+        }
+        public static GenericKinectBody fromBytes(byte[] arr)
+        {
+            GenericKinectBody data = new GenericKinectBody();
+
+            int size = Marshal.SizeOf(data);
+            IntPtr ptr = Marshal.AllocHGlobal(size);
+
+            Marshal.Copy(arr, 0, ptr, size);
+
+            data = (GenericKinectBody)Marshal.PtrToStructure(ptr, data.GetType());
+            Marshal.FreeHGlobal(ptr);
+
+            return data;
+        }
+        public void fromBody(Body body)
+        {
+            JointCount = Body.JointCount; // its a static
+            LeanX = body.Lean.X;
+            LeanY = body.Lean.Y;
+            IsRestricted = (Int16)(body.IsRestricted ? 1 : 0);
+            IsTracked = (Int16)(body.IsTracked ? 1 : 0);
+            TrackingId = body.TrackingId;
+            Joints = new GenericJoint[32];
+            foreach (var joint in body.Joints.ToArray())
+            {
+                Joints[(int)joint.Key] = new GenericJoint();
+                Joints[(int)joint.Key].from(joint.Value);
+            }
+            JointOrientations = new GenericJointOrientation[32];
+            foreach (var ori in body.JointOrientations)
+            {
+                JointOrientations[(int)ori.Key] = new GenericJointOrientation();
+                JointOrientations[(int)ori.Key].from(ori.Value);
+            }
+            HandRightConfidence = (Int16)body.HandRightConfidence;
+            HandRightState = (Int16)body.HandRightState;
+            HandLeftConfidence = (Int16)body.HandLeftConfidence;
+            HandLeftState = (Int16)body.HandLeftState;
+            LeanTrackingState = (Int16)body.LeanTrackingState;
+            HandRightState = (Int16)body.HandRightState;
+        }
+        public Int32 JointCount { get; set; }
+        //
+        // Summary:
+        //     Gets the lean vector of the body.
+        public float LeanX;
+        public float LeanY;
+
+        //
+        // Summary:
+        //     Gets whether or not the body is restricted.
+        public Int16 IsRestricted { get; set; }
+        //
+        // Summary:
+        //     Gets whether or not the body is tracked.
+        public Int16 IsTracked { get; set; }
+        //
+        // Summary:
+        //     Gets the tracking ID for the body.
+        public UInt64 TrackingId { get; set; }
+        //
+        // Summary:
+        //     Gets the joint positions of the body.
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct, SizeConst = 32)]
+        GenericJoint[] Joints;
+        //
+        // Summary:
+        //     Gets the joint orientations of the body.
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        GenericJointOrientation[] JointOrientations;
+        //
+        // Summary:
+        //     Gets the status of the body's right hand state.
+        public Int16 HandRightState { get; set; }
+        //
+        // Summary:
+        //     Gets the confidence of the body's left hand state.
+        public Int16 HandLeftConfidence { get; set; }
+        //
+        // Summary:
+        //     Gets the status of the body's left hand state.
+        public Int16 HandLeftState { get; set; }
+        //
+        // Summary:
+        //     Gets the tracking state for the body lean.
+        public Int16 LeanTrackingState { get; set; }
+        //
+        // Summary:
+        //     Gets the confidence of the body's right hand state.
+        public Int16 HandRightConfidence { get; set; }
+    }
+    public class KinectBody
+    {
+        private List<Tuple<JointType, JointType>> bones;
+
+        public void setup()
+        {
+            // a bone defined as a line between two joints
+            this.bones = new List<Tuple<JointType, JointType>>();
+
+            // Torso
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.Head, JointType.Neck));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.Neck, JointType.SpineShoulder));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.SpineShoulder, JointType.SpineMid));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.SpineMid, JointType.SpineBase));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.SpineShoulder, JointType.ShoulderRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.SpineShoulder, JointType.ShoulderLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.SpineBase, JointType.HipRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.SpineBase, JointType.HipLeft));
+
+            // Right Arm
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.ShoulderRight, JointType.ElbowRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.ElbowRight, JointType.WristRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.WristRight, JointType.HandRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.HandRight, JointType.HandTipRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.WristRight, JointType.ThumbRight));
+
+            // Left Arm
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.ShoulderLeft, JointType.ElbowLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.ElbowLeft, JointType.WristLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.WristLeft, JointType.HandLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.HandLeft, JointType.HandTipLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.WristLeft, JointType.ThumbLeft));
+
+            // Right Leg
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.HipRight, JointType.KneeRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.KneeRight, JointType.AnkleRight));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.AnkleRight, JointType.FootRight));
+
+            // Left Leg
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.HipLeft, JointType.KneeLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.KneeLeft, JointType.AnkleLeft));
+            this.bones.Add(new Tuple<JointType, JointType>(JointType.AnkleLeft, JointType.FootLeft));
+
+        }
+    }
+    public class KinectBodies
+        {   
+        // <summary>
+        /// Radius of drawn hand circles
+        /// </summary>
+        private const double HandSize = 30;
+
+        /// <summary>
+        /// Thickness of drawn joint lines
+        /// </summary>
+        private const double JointThickness = 3;
+
+        /// <summary>
+        /// Thickness of clip edge rectangles
+        /// </summary>
+        private const double ClipBoundsThickness = 10;
+
+        /// <summary>
+        /// Constant for clamping Z values of camera space points from being negative
+        /// </summary>
+        private const float InferredZPositionClamp = 0.1f;
+
+        /// <summary>
+        /// Brush used for drawing hands that are currently tracked as closed
+        /// </summary>
+        private readonly Brush handClosedBrush = new SolidColorBrush(Color.FromArgb(128, 255, 0, 0));
+
+        /// <summary>
+        /// Brush used for drawing hands that are currently tracked as opened
+        /// </summary>
+        private readonly Brush handOpenBrush = new SolidColorBrush(Color.FromArgb(128, 0, 255, 0));
+
+        /// <summary>
+        /// Brush used for drawing hands that are currently tracked as in lasso (pointer) position
+        /// </summary>
+        private readonly Brush handLassoBrush = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
+
+        /// <summary>
+        /// Brush used for drawing joints that are currently tracked
+        /// </summary>
+        private readonly Brush trackedJointBrush = new SolidColorBrush(Color.FromArgb(255, 68, 192, 68));
+
+        /// <summary>
+        /// Brush used for drawing joints that are currently inferred
+        /// </summary>        
+        private readonly Brush inferredJointBrush = Brushes.Yellow;
+
+        /// <summary>
+        /// Pen used for drawing bones that are currently inferred
+        /// </summary>        
+        private readonly Pen inferredBonePen = new Pen(Brushes.Gray, 1);
+
+        /// <summary>
+        /// Drawing group for body rendering output
+        /// </summary>
+        private DrawingGroup drawingGroup;
+
+        /// <summary>
+        /// Drawing image that we will display
+        /// </summary>
+        private DrawingImage imageSource;
+
+    }
+    public class TupleList<T1, T2> : List<Tuple<T1, T2>>
+    {
+        public void Add(T1 item, T2 item2)
+        {
+            this.Add(new Tuple<T1, T2>(item, item2));
+        }
+    }
     public static class myColor
     {
         public static HSB RGBToHSB(System.Drawing.Color c)
@@ -168,6 +421,8 @@ namespace s552ClassLibrary1
     }
     public class KinectDataObject : INotifyPropertyChanged
     {
+        KinectBodies bodies;
+
         ImageSource ColorImage = null;
         ImageSource DepthImage = null;
         ImageSource IRImage = null;
@@ -240,7 +495,8 @@ namespace s552ClassLibrary1
 
     public class myKinect
     {
-
+        KinectBody body;
+        private Body[] bodies = null;
         private KinectSensor kinectSensor = null;
         private const float InfraredSourceValueMaximum = (float)ushort.MaxValue;
         private const float InfraredOutputValueMinimum = 0.01f;
@@ -264,9 +520,12 @@ namespace s552ClassLibrary1
             }
             // wire handler for frame arrival
             //kinectSensor.ColorFrameSource.OpenReader().FrameArrived += updateColorEvent;
-            kinectSensor.DepthFrameSource.OpenReader().FrameArrived += updateDepthEvent;
+            //kinectSensor.DepthFrameSource.OpenReader().FrameArrived += updateDepthEvent;
             //kinectSensor.InfraredFrameSource.OpenReader().FrameArrived += updateIREvent;
-            kinectSensor.BodyIndexFrameSource.OpenReader().FrameArrived += updateBodyIndexEvent;
+            //kinectSensor.BodyIndexFrameSource.OpenReader().FrameArrived += updateBodyIndexEvent;
+           // body.setup();//bugbug will need to have array of these
+
+            kinectSensor.BodyFrameSource.OpenReader().FrameArrived += updateBodyEvent;
         }
         public void close()
         {
@@ -285,6 +544,21 @@ namespace s552ClassLibrary1
             encoder.Save(memory);
             memory.Close();
             return memory;
+        }
+        private void SendBody(GenericKinectBody body)
+        {
+            // todo bugbug see if we can keep this open maybe? not sure 
+            using(var connection = factory.CreateConnection())
+            using (var channel = connection.CreateModel())
+            {
+                channel.ExchangeDeclare(exchange: "kinectbody", type: "fanout");
+                
+                //bugbug once all working add in the jpeg stuff (?) or just compress
+                channel.BasicPublish(exchange: "kinectbody",
+                                     routingKey: "",
+                                     basicProperties: null,
+                                     body: body.getBytes());
+            }
         }
         private void SendImage(WriteableBitmap img, string name, int quality = 30)
         {
@@ -381,6 +655,7 @@ namespace s552ClassLibrary1
                 }
             }
         }
+        // color cam
         private void updateColorEvent(object sender, ColorFrameArrivedEventArgs e)
         {
             // ColorFrame is IDisposable
@@ -393,6 +668,34 @@ namespace s552ClassLibrary1
 
                     frame.CopyConvertedFrameDataToIntPtr(Bitmap.BackBuffer,   (uint)(frameDescription.Width * frameDescription.Height * 4),  ColorImageFormat.Bgra);
                     SendImage(Bitmap, "kinectcolor");
+                }
+            }
+        }
+        /* The computed data provided by this frame type includes skeletal joints and orientations, hand states, and more for up to 6 people at a time. 
+         * These tracking features provide a great baseline for getting started with human interaction in your app.
+         */
+        private void updateBodyEvent(object sender, BodyFrameArrivedEventArgs e)
+        {
+            using (BodyFrame frame = e.FrameReference.AcquireFrame())
+            {
+                if (bodies == null)
+                {
+                    bodies = new Body[frame.BodyCount];
+                }
+
+                // The first time GetAndRefreshBodyData is called, Kinect will allocate each Body in the array.
+                // As long as those body objects are not disposed and not set to null in the array,
+                // those body objects will be re-used.
+                frame.GetAndRefreshBodyData(bodies);
+                // send all bodies that are tracked
+                GenericKinectBody gbody = new GenericKinectBody();
+                for (int i = 0; i < bodies.Length; ++i)
+                {
+                    if (bodies[i].IsTracked)
+                    {
+                        gbody.fromBody(bodies[i]);
+                        SendBody(gbody);
+                    }
                 }
             }
         }

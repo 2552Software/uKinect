@@ -12,7 +12,12 @@ namespace WpfApp2
     {
         private static IModel channelForEventing;
         static KinectDataObject kinectData = new KinectDataObject();
-        
+
+        private static void EventingBasicKinectBodyReceived(object sender, BasicDeliverEventArgs e)
+        {
+            GenericKinectBody body = GenericKinectBody.fromBytes(e.Body);
+            channelForEventing.BasicAck(e.DeliveryTag, false);
+        }
         private static void EventingBasicIRReceived(object sender, BasicDeliverEventArgs e)
         {
             kinectData.setIRImage(e.Body);
@@ -74,6 +79,14 @@ namespace WpfApp2
             EventingBasicConsumer eventingBasicConsumerkinectbodyIndex = new EventingBasicConsumer(channelForEventing);
             eventingBasicConsumerkinectbodyIndex.Received += EventingBasicBodyIndexReceived;
             channelForEventing.BasicConsume(queue: queueName, autoAck: false, consumer: eventingBasicConsumerkinectbodyIndex);
+
+            channelForEventing.ExchangeDeclare(exchange: "kinectbodyindex", type: "fanout");
+            queueName = channelForEventing.QueueDeclare().QueueName;
+            channelForEventing.QueueBind(queue: queueName, exchange: "kinectbodyindex", routingKey: "");
+            EventingBasicConsumer eventingBasicConsumerkinectbody = new EventingBasicConsumer(channelForEventing);
+            eventingBasicConsumerkinectbody.Received += EventingBasicKinectBodyReceived;
+            channelForEventing.BasicConsume(queue: queueName, autoAck: false, consumer: eventingBasicConsumerkinectbody);
+            
 
         }
         public MainWindow()
