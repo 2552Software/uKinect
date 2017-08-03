@@ -48,15 +48,18 @@ namespace s552ClassLibrary1
         public float Z;
         public UInt16 TrackingState;
     }
-    public class GenericKinectBody
+    //int size = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GenericKinectBody));
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct GenericKinectBody
     {
-        public byte[] getBytes()
+        public static byte[] getBytes(GenericKinectBody body)
         {
-            int size = Marshal.SizeOf(this);
+            int size = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GenericKinectBody));
+            //int size = Marshal.SizeOf(body);
             byte[] arr = new byte[size];
 
             IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(this, ptr, true);
+            Marshal.StructureToPtr(body, ptr, true);
             Marshal.Copy(ptr, arr, 0, size);
             Marshal.FreeHGlobal(ptr);
             return arr;
@@ -552,12 +555,12 @@ namespace s552ClassLibrary1
             using (var channel = connection.CreateModel())
             {
                 channel.ExchangeDeclare(exchange: "kinectbody", type: "fanout");
-                
+
                 //bugbug once all working add in the jpeg stuff (?) or just compress
                 channel.BasicPublish(exchange: "kinectbody",
                                      routingKey: "",
                                      basicProperties: null,
-                                     body: body.getBytes());
+                                     body: GenericKinectBody.getBytes(body));
             }
         }
         private void SendImage(WriteableBitmap img, string name, int quality = 30)
