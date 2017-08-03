@@ -13,5 +13,8 @@
      <Viewbox Grid.Row="1" HorizontalAlignment="Right">
         <Image Name="theDepth" Source="{Binding DepthSource}" Stretch="UniformToFill" />
     </Viewbox>
+        <Viewbox Grid.Row="1" HorizontalAlignment="Center">
+            <Image Name="theIR" Source="{Binding IRSource}" Stretch="UniformToFill" />
+        </Viewbox>
     </Grid>
 </Window>

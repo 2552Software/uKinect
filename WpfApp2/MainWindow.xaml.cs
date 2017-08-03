@@ -12,7 +12,12 @@ namespace WpfApp2
     {
         private static IModel channelForEventing;
         static KinectDataObject kinectData = new KinectDataObject();
-
+        
+        private static void EventingBasicIRReceived(object sender, BasicDeliverEventArgs e)
+        {
+            kinectData.setIRImage(e.Body);
+            channelForEventing.BasicAck(e.DeliveryTag, false);
+        }
         private static void EventingBasicColorReceived(object sender, BasicDeliverEventArgs e)
         {
             kinectData.setColorImage(e.Body);
@@ -51,12 +56,19 @@ namespace WpfApp2
             eventingBasicConsumerDepth.Received += EventingBasicDepthReceived;
             channelForEventing.BasicConsume(queue: queueName, autoAck: false, consumer: eventingBasicConsumerDepth);
 
+            channelForEventing.ExchangeDeclare(exchange: "kinectir", type: "fanout");
+            queueName = channelForEventing.QueueDeclare().QueueName;
+            channelForEventing.QueueBind(queue: queueName, exchange: "kinectir", routingKey: "");
+            EventingBasicConsumer eventingBasicConsumerIR = new EventingBasicConsumer(channelForEventing);
+            eventingBasicConsumerIR.Received += EventingBasicIRReceived;
+            channelForEventing.BasicConsume(queue: queueName, autoAck: false, consumer: eventingBasicConsumerIR);
         }
         public MainWindow()
         {
             InitializeComponent();
             theImage.DataContext = kinectData;
             theDepth.DataContext = kinectData;
+            theIR.DataContext = kinectData;
             ReceiveMessagesWithEvents();
         }
     }

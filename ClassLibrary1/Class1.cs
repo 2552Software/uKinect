@@ -18,6 +18,7 @@ namespace ClassLibrary1
     {
         ImageSource ColorImage = null;
         ImageSource DepthImage = null;
+        ImageSource IRImage = null;
 
         public void Refresh(string name)
         {
@@ -32,6 +33,10 @@ namespace ClassLibrary1
         {
             get { return DepthImage; }
         }
+        public ImageSource IRSource
+        {
+            get { return IRImage; }
+        }
         public void setColorImage(byte[] buffer)
         {
             ColorImage = ConvertBytesToImage(buffer);
@@ -41,6 +46,11 @@ namespace ClassLibrary1
         {
             DepthImage = ConvertBytesToImage(buffer);
             Refresh("DepthSource");
+        }
+        public void setIRImage(byte[] buffer)
+        {
+            IRImage = ConvertBytesToImage(buffer);
+            Refresh("IRSource");
         }
         private ImageSource ConvertBytesToImage(byte[] buffer)
         {
@@ -71,6 +81,11 @@ namespace ClassLibrary1
     {
 
         private KinectSensor kinectSensor = null;
+        private const float InfraredSourceValueMaximum = (float)ushort.MaxValue;
+        private const float InfraredOutputValueMinimum = 0.01f;
+        private const float InfraredOutputValueMaximum = 1.0f;
+        private const float InfraredSceneValueAverage = 0.08f;
+        private const float InfraredSceneStandardDeviations = 3.0f;
 
         ConnectionFactory factory = new ConnectionFactory() { HostName = "localhost" };
 
@@ -89,6 +104,7 @@ namespace ClassLibrary1
             // wire handler for frame arrival
             kinectSensor.ColorFrameSource.OpenReader().FrameArrived += updateColorEvent;
             kinectSensor.DepthFrameSource.OpenReader().FrameArrived += updateDepthEvent;
+            kinectSensor.InfraredFrameSource.OpenReader().FrameArrived += updateIREvent;
         }
         public void close()
         {
@@ -122,23 +138,44 @@ namespace ClassLibrary1
                                      body: SaveImage(img, quality).ToArray());
             }
         }
-        private void updateColorEvent(object sender, ColorFrameArrivedEventArgs e)
+        private void updateIREvent(object sender, InfraredFrameArrivedEventArgs e)
         {
-            // ColorFrame is IDisposable
-            using (ColorFrame colorFrame = e.FrameReference.AcquireFrame())
-            {
-                if (colorFrame != null)
-                {
-                    FrameDescription colorFrameDescription = colorFrame.FrameDescription;
-                    using (KinectBuffer colorBuffer = colorFrame.LockRawImageBuffer())
-                    {
-                        WriteableBitmap colorBitmap = new WriteableBitmap(colorFrameDescription.Width, colorFrameDescription.Height, 196.0, 196.0, PixelFormats.Bgr32, null);
 
-                        colorFrame.CopyConvertedFrameDataToIntPtr(
-                                    colorBitmap.BackBuffer,
-                                    (uint)(colorFrameDescription.Width * colorFrameDescription.Height * 4),
-                                    ColorImageFormat.Bgra);
-                        SendImage(colorBitmap, "kinectcolor");
+            // ColorFrame is IDisposable
+            using (InfraredFrame frame = e.FrameReference.AcquireFrame())
+            {
+                if (frame != null)
+                {
+                    FrameDescription frameDescription = frame.FrameDescription;
+                    using (KinectBuffer buffer = frame.LockImageBuffer())
+                    {
+                        ushort[] frameData = new ushort[frameDescription.Width * frameDescription.Height];
+
+                        WriteableBitmap Bitmap = BitmapFactory.New(frameDescription.Width, frameDescription.Height);
+                        frame.CopyFrameDataToArray(frameData);
+                        for (int y = 0; y < frameDescription.Height; y++)
+                        {
+                            for (int x = 0; x < frameDescription.Width; x++)
+                            {
+                                int index = y * frameDescription.Width + x;
+                                float intensityRatio = (float)frameData[index] / InfraredSourceValueMaximum;
+
+                                // 2. dividing by the (average scene value * standard deviations)
+                                intensityRatio /= InfraredSceneValueAverage * InfraredSceneStandardDeviations;
+
+                                // 3. limiting the value to InfraredOutputValueMaximum
+                                intensityRatio = Math.Min(InfraredOutputValueMaximum, intensityRatio);
+
+                                // 4. limiting the lower value InfraredOutputValueMinimum
+                                intensityRatio = Math.Max(InfraredOutputValueMinimum, intensityRatio);
+
+                                // 5. converting the normalized value to a byte and using the result
+                                // as the RGB components required by the image
+                                byte intensity = (byte)(intensityRatio * 255.0f);
+                                Bitmap.SetPixel(x, y, 255, intensity, intensity, intensity);
+                            }
+                        }
+                        SendImage(Bitmap, "kinectir");
                     }
 
                 }
@@ -156,7 +193,7 @@ namespace ClassLibrary1
                     {
                         ushort[] frameData = new ushort[depthFrameDescription.Width * depthFrameDescription.Height];
 
-                        WriteableBitmap Bitmap = BitmapFactory.New(512, 512);
+                        WriteableBitmap Bitmap = BitmapFactory.New(depthFrameDescription.Width, depthFrameDescription.Height);
                         depthFrame.CopyFrameDataToArray(frameData);
                         ushort minDepth = depthFrame.DepthMinReliableDistance;
                         ushort maxDepth = depthFrame.DepthMaxReliableDistance;
@@ -173,13 +210,12 @@ namespace ClassLibrary1
                                 Bitmap.SetPixel(x, y, intensity, intensity, intensity, 255);
                             }
                         }
-                        //Bitmap.FromByteArray(depthPixels);
                         SendImage(Bitmap, "kinectdepth");
                     }
                 }
             }
         }
-        private void updateDepthEvent(object sender, ColorFrameArrivedEventArgs e)
+        private void updateColorEvent(object sender, ColorFrameArrivedEventArgs e)
         {
             // ColorFrame is IDisposable
             using (ColorFrame colorFrame = e.FrameReference.AcquireFrame())
