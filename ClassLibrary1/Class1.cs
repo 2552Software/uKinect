@@ -207,7 +207,7 @@ namespace ClassLibrary1
                                 byte intensity = (byte)(depth >= minDepth &&
                                     depth <= maxDepth ? (depth / mapDepthToByte) : 0);
 
-                                Bitmap.SetPixel(x, y, intensity, intensity, intensity, 255);
+                                Bitmap.SetPixel(x, y, 255, intensity, intensity, intensity);
                             }
                         }
                         SendImage(Bitmap, "kinectdepth");
