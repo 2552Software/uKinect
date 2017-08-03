@@ -11,11 +11,16 @@ namespace WpfApp2
     public partial class MainWindow : Window
     {
         private static IModel channelForEventing;
-        static KinectDataObject data = new KinectDataObject();
+        static KinectDataObject kinectData = new KinectDataObject();
 
-        private static void EventingBasicConsumer_Received(object sender, BasicDeliverEventArgs e)
+        private static void EventingBasicColorReceived(object sender, BasicDeliverEventArgs e)
         {
-            data.setImage(e.Body);
+            kinectData.setColorImage(e.Body);
+            channelForEventing.BasicAck(e.DeliveryTag, false);
+        }
+        private static void EventingBasicDepthReceived(object sender, BasicDeliverEventArgs e)
+        {
+            kinectData.setDepthImage(e.Body);
             channelForEventing.BasicAck(e.DeliveryTag, false);
         }
 
@@ -31,18 +36,27 @@ namespace WpfApp2
             IConnection connection = connectionFactory.CreateConnection();
             channelForEventing = connection.CreateModel();
             channelForEventing.BasicQos(0, 1, false);
+
             channelForEventing.ExchangeDeclare(exchange: "kinectcolor", type: "fanout");
             var queueName = channelForEventing.QueueDeclare().QueueName;
             channelForEventing.QueueBind(queue: queueName, exchange: "kinectcolor", routingKey: "");
             EventingBasicConsumer eventingBasicConsumer = new EventingBasicConsumer(channelForEventing);
-            eventingBasicConsumer.Received += EventingBasicConsumer_Received;
+            eventingBasicConsumer.Received += EventingBasicColorReceived;
             channelForEventing.BasicConsume(queue: queueName, autoAck: false, consumer: eventingBasicConsumer);
+
+            channelForEventing.ExchangeDeclare(exchange: "kinectdepth", type: "fanout");
+            queueName = channelForEventing.QueueDeclare().QueueName;
+            channelForEventing.QueueBind(queue: queueName, exchange: "kinectdepth", routingKey: "");
+            EventingBasicConsumer eventingBasicConsumerDepth = new EventingBasicConsumer(channelForEventing);
+            eventingBasicConsumerDepth.Received += EventingBasicDepthReceived;
+            channelForEventing.BasicConsume(queue: queueName, autoAck: false, consumer: eventingBasicConsumerDepth);
+
         }
         public MainWindow()
         {
             InitializeComponent();
-
-            theImage.DataContext = data;
+            theImage.DataContext = kinectData;
+            theDepth.DataContext = kinectData;
             ReceiveMessagesWithEvents();
         }
     }

@@ -7,9 +7,11 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="350" Width="525">
     <Grid>
-        
-        <Viewbox Grid.Row="1" HorizontalAlignment="Center">
-            <Image Name="theImage" Source="{Binding ImageSource}" Stretch="UniformToFill" />
+      <Viewbox Grid.Row="1" HorizontalAlignment="Left">
+            <Image Name="theImage" Source="{Binding ColorSource}" Stretch="UniformToFill" />
+        </Viewbox>
+     <Viewbox Grid.Row="1" HorizontalAlignment="Right">
+        <Image Name="theDepth" Source="{Binding DepthSource}" Stretch="UniformToFill" />
     </Viewbox>
     </Grid>
 </Window>
