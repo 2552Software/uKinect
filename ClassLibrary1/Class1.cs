@@ -15,146 +15,6 @@ using System.Runtime.InteropServices;
 
 namespace s552ClassLibrary1
 {
-    // converted to bytes that can be used by any client
-    public class GenericJointOrientation
-    {
-        public void from(JointOrientation ori)
-        {
-            JointType = (UInt32)ori.JointType;
-            X = ori.Orientation.X;
-            Y = ori.Orientation.Y;
-            Z = ori.Orientation.Z;
-            W = ori.Orientation.W;
-        }
-        public UInt32 JointType; // public enum JointType
-        public float X;
-        public float Y;
-        public float Z;
-        public float W;
-    }
-    public class GenericJoint
-    {
-        public void from(Joint joint)
-        {
-            JointType = (UInt32)joint.JointType;
-            X = joint.Position.X;
-            Y = joint.Position.Y;
-            Z = joint.Position.Z;
-            TrackingState = (UInt16)joint.TrackingState;
-        }
-        public UInt32 JointType; // see public enum JointType
-        public float X;
-        public float Y;
-        public float Z;
-        public UInt16 TrackingState;
-    }
-    //int size = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GenericKinectBody));
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct GenericKinectBody
-    {
-        public static byte[] getBytes(GenericKinectBody body)
-        {
-            int size = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GenericKinectBody));
-            //int size = Marshal.SizeOf(body);
-            byte[] arr = new byte[size];
-
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(body, ptr, true);
-            Marshal.Copy(ptr, arr, 0, size);
-            Marshal.FreeHGlobal(ptr);
-            return arr;
-        }
-        public static GenericKinectBody fromBytes(byte[] arr)
-        {
-            GenericKinectBody data = new GenericKinectBody();
-
-            int size = Marshal.SizeOf(data);
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-
-            Marshal.Copy(arr, 0, ptr, size);
-
-            data = (GenericKinectBody)Marshal.PtrToStructure(ptr, data.GetType());
-            Marshal.FreeHGlobal(ptr);
-
-            return data;
-        }
-        public void fromBody(Body body)
-        {
-            JointCount = Body.JointCount; // its a static
-            LeanX = body.Lean.X;
-            LeanY = body.Lean.Y;
-            IsRestricted = (Int16)(body.IsRestricted ? 1 : 0);
-            IsTracked = (Int16)(body.IsTracked ? 1 : 0);
-            TrackingId = body.TrackingId;
-            Joints = new GenericJoint[32];
-            foreach (var joint in body.Joints.ToArray())
-            {
-                Joints[(int)joint.Key] = new GenericJoint();
-                Joints[(int)joint.Key].from(joint.Value);
-            }
-            JointOrientations = new GenericJointOrientation[32];
-            foreach (var ori in body.JointOrientations)
-            {
-                JointOrientations[(int)ori.Key] = new GenericJointOrientation();
-                JointOrientations[(int)ori.Key].from(ori.Value);
-            }
-            HandRightConfidence = (Int16)body.HandRightConfidence;
-            HandRightState = (Int16)body.HandRightState;
-            HandLeftConfidence = (Int16)body.HandLeftConfidence;
-            HandLeftState = (Int16)body.HandLeftState;
-            LeanTrackingState = (Int16)body.LeanTrackingState;
-            HandRightState = (Int16)body.HandRightState;
-        }
-        public Int32 JointCount { get; set; }
-        //
-        // Summary:
-        //     Gets the lean vector of the body.
-        public float LeanX;
-        public float LeanY;
-
-        //
-        // Summary:
-        //     Gets whether or not the body is restricted.
-        public Int16 IsRestricted { get; set; }
-        //
-        // Summary:
-        //     Gets whether or not the body is tracked.
-        public Int16 IsTracked { get; set; }
-        //
-        // Summary:
-        //     Gets the tracking ID for the body.
-        public UInt64 TrackingId { get; set; }
-        //
-        // Summary:
-        //     Gets the joint positions of the body.
-        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct, SizeConst = 32)]
-        GenericJoint[] Joints;
-        //
-        // Summary:
-        //     Gets the joint orientations of the body.
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-        GenericJointOrientation[] JointOrientations;
-        //
-        // Summary:
-        //     Gets the status of the body's right hand state.
-        public Int16 HandRightState { get; set; }
-        //
-        // Summary:
-        //     Gets the confidence of the body's left hand state.
-        public Int16 HandLeftConfidence { get; set; }
-        //
-        // Summary:
-        //     Gets the status of the body's left hand state.
-        public Int16 HandLeftState { get; set; }
-        //
-        // Summary:
-        //     Gets the tracking state for the body lean.
-        public Int16 LeanTrackingState { get; set; }
-        //
-        // Summary:
-        //     Gets the confidence of the body's right hand state.
-        public Int16 HandRightConfidence { get; set; }
-    }
     public class KinectBody
     {
         private List<Tuple<JointType, JointType>> bones;
@@ -548,7 +408,7 @@ namespace s552ClassLibrary1
             memory.Close();
             return memory;
         }
-        private void SendBody(GenericKinectBody body)
+        private void SendBody(Body body)
         {
             // todo bugbug see if we can keep this open maybe? not sure 
             using(var connection = factory.CreateConnection())
@@ -560,7 +420,7 @@ namespace s552ClassLibrary1
                 channel.BasicPublish(exchange: "kinectbody",
                                      routingKey: "",
                                      basicProperties: null,
-                                     body: GenericKinectBody.getBytes(body));
+                                     body: "json");// get json
             }
         }
         private void SendImage(WriteableBitmap img, string name, int quality = 30)
@@ -691,13 +551,12 @@ namespace s552ClassLibrary1
                 // those body objects will be re-used.
                 frame.GetAndRefreshBodyData(bodies);
                 // send all bodies that are tracked
-                GenericKinectBody gbody = new GenericKinectBody();
                 for (int i = 0; i < bodies.Length; ++i)
                 {
                     if (bodies[i].IsTracked)
                     {
                         gbody.fromBody(bodies[i]);
-                        SendBody(gbody);
+                       // SendBody(gbody);
                     }
                 }
             }
