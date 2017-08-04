@@ -566,7 +566,7 @@ namespace WpfApp2
 
         private static void EventingBasicKinectBodyReceived(object sender, BasicDeliverEventArgs e)
         {
-            GenericKinectBody body = GenericKinectBody.fromBytes(e.Body);
+            //GenericKinectBody body = GenericKinectBody.fromBytes(e.Body);
             channelForEventing.BasicAck(e.DeliveryTag, false);
         }
         private static void EventingBasicIRReceived(object sender, BasicDeliverEventArgs e)

@@ -415,12 +415,12 @@ namespace s552ClassLibrary1
             using (var channel = connection.CreateModel())
             {
                 channel.ExchangeDeclare(exchange: "kinectbody", type: "fanout");
-
+                byte[] data = new byte[1];
                 //bugbug once all working add in the jpeg stuff (?) or just compress
                 channel.BasicPublish(exchange: "kinectbody",
                                      routingKey: "",
                                      basicProperties: null,
-                                     body: "json");// get json
+                                     body: data);// get json
             }
         }
         private void SendImage(WriteableBitmap img, string name, int quality = 30)
@@ -555,7 +555,7 @@ namespace s552ClassLibrary1
                 {
                     if (bodies[i].IsTracked)
                     {
-                        gbody.fromBody(bodies[i]);
+                      //  gbody.fromBody(bodies[i]);
                        // SendBody(gbody);
                     }
                 }
